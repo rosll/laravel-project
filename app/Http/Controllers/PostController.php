@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreUpdatePost;
 use App\Models\Post;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class PostController extends Controller
 {
@@ -19,11 +21,20 @@ class PostController extends Controller
     }
 
     public function store(StoreUpdatePost $request) {
-        Post::create($request->all());
+        $data = $request->all();
+
+        if ($request->image->isValid()) {
+            $nameFile = Str::of($request->title)->slug('-') . '.' .$request->image->getClientOriginalExtension();
+            $image = $request->image->storeAs('public/posts', $nameFile);
+            $image = str_replace('public/','',$image);
+            $data['image'] = $image;
+        }
+
+        Post::create($data);
 
         return redirect()
                 ->route('posts.index')
-                ->with('message', 'Post criado com sucesso');;
+                ->with('message', 'Post criado com sucesso');
     }
 
     public function show($id) {
@@ -38,6 +49,11 @@ class PostController extends Controller
     public function destroy($id) {
         if (!$post = Post::find($id))
             return redirect()->route('posts.index');
+
+        if (Storage::exists($post->image)) {
+            Storage::delete($post->image);
+
+        }
 
         $post->delete();
 
@@ -60,7 +76,21 @@ class PostController extends Controller
             return redirect()->back(); // ou ->route('posts.index')
         }
 
-        $post->update($request->all());
+        $data = $request->all();
+
+        if ($request->image->isValid()) {
+            if (Storage::exists($post->image)) {
+                Storage::delete($post->image);
+
+            }
+
+            $nameFile = Str::of($request->title)->slug('-') . '.' .$request->image->getClientOriginalExtension();
+            $image = $request->image->storeAs('public/posts', $nameFile);
+            $image = str_replace('public/','',$image);
+            $data['image'] = $image;
+        }
+
+        $post->update($data);
         
         return redirect()
                 ->route('posts.index')
